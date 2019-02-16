@@ -16,7 +16,7 @@ class MDP(object):
 		# Probability of scoring from locations in the pitch
 		# each list inside goalProbs represents probability of scoring goal
 		# for grids in a column, starting from the leftmost column
-		self.goalProbs = [[0.00,0.00,0.0,0.00,0.00],[0.0, 0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0],[0.0,0.3,0.5,0.3,0.0],[0.0,0.8,0.9,0.8,0.0]]
+		self.goalProbs = [[0.00,0.00,0.0,0.00,0.00],[0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0],[0.0,0.3,0.5,0.3,0.0],[0.0,0.8,0.9,0.8,0.0]]
 
 	def getRewards(self, initState, Action, nextState):
 		""" Return R(s,a,s') for the MDP 
@@ -84,14 +84,3 @@ class MDP(object):
 			nextStateProbs["OUT"] = 1.0
 
 		return nextStateProbs
-
-
-
-
-
-
-
-
-
-
-
