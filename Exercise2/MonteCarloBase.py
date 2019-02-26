@@ -6,6 +6,7 @@ from DiscreteHFO.Agent import Agent
 import argparse
 
 from collections import defaultdict
+import numpy as np
 
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor = 0.99, epsilon = 1.0, initVals=0.0):
@@ -13,14 +14,33 @@ class MonteCarloAgent(Agent):
 		self.discountFactor = discountFactor
 		self.initDiscountFactor = discountFactor
 		self.epsilon = epsilon
+		# Set init epsilon for reset purposes
 		self.initEpsilon = epsilon
-		# Set dict to init Q-Values of all state-action pairs to zero prior to training
-		self.Q = defaultdict(float)
+		# G = dict, where KEY= tuple state, action and VALUE= list of rewards 
+		self.episodeStateActions = {}
+		self.rewards = []
+		
+		self.Q = {}
 
-		# To access list of posible actions: Agent.possibleActions
+		# List to schedule epsilon values from (assumes 5000 episodes)
+		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
+		# Asymptote schedule for e-soft
+		self.e_range = (1/X**2)
+		# Normalize to fit range 0.0-1.0
+		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
+	def toStateRepresentation(self, state):
+		self.state = state
+		# receive a state
+		# output to form suitable to my implementation
+		return self.state
+		#raise NotImplementedError
 
 	def learn(self):
+		for item in self.episodeStateActions.keys():
+			self.Q[item] = np.average(self.rewards[self.episodeStateActions[item]:])
+
+
 		# if state-action pair in dict
 		# 
 		# 
@@ -28,16 +48,7 @@ class MonteCarloAgent(Agent):
 		# should return Q-value estimate after update of the states you've 
 		# encountered in the episode ordered by their first 
 		# time appearance in the episode
-		self.Qestimate = defaultdict(float) #Empty for now!
-		self.Qcomplete = defaultdict(float) #Empty for now!
-		return self.Qcomplete, self.Qestimate 
-		#raise NotImplementedError
-
-	def toStateRepresentation(self, state):
-		self.state = state
-		# receive a state
-		# output to form suitable to my implementation
-		return self.state
+		return self.Q
 		#raise NotImplementedError
 
 	def setExperience(self, state, action, reward, status, nextState):
@@ -47,6 +58,19 @@ class MonteCarloAgent(Agent):
 		self.reward = reward
 		self.status = status
 		self.nextState = nextState
+
+		# TODO: Add discount factor here somewhere!!
+		# Create tuple with state-action pair
+		pair = (tuple(self.currentState), self.actionTaken)
+		# If this is the first time S,A pair is seen, add to dict and note timestep
+		if pair not in self.episodeStateActions.keys():
+			self.episodeStateActions[pair] = self.timeStep
+		
+		# Append reward to list of rewards
+		self.rewards += [reward]
+		
+		
+
 		#raise NotImplementedError
 
 	def setState(self, state):
@@ -58,14 +82,26 @@ class MonteCarloAgent(Agent):
 		# Also reset Q-values?
 		self.discountFactor = self.initDiscountFactor
 		self.epsilon = self.initEpsilon
+		self.episodeStateActions = {}
 		#raise NotImplementedError
 
 	def act(self): # 
+		# should return the action that should be taken at every state
+		# calculate probability of selecting greedy or not
+		#nonGreedy = (self.epsilon/len(self.possibleActions))
+
+		# TODO: Find optimal action for state according to Q!
+
+		p = np.random.uniform(0,1,1)
+		if p > self.epsilon:
+			# Pick best action
+			self.action = "KICK" # Change!
+			#print('GREEDY!: ',self.epsilon)
+		else:
+			# Act randomly
+			self.action = np.random.choice(self.possibleActions, 1)[0]
+			#print('RANDOMLY!: ',self.epsilon)
 	
-		self.action = 'KICK'
-		# should return a dictionary of the action that should be taken at every state
-		# Or should it be a list of S, A, R until end of episode?
-		# or given a state select an action based on epsilon and other parameters?
 		return self.action
 		#raise NotImplementedError
 
@@ -74,12 +110,16 @@ class MonteCarloAgent(Agent):
 		return self.epsilon
 		#raise NotImplementedError
 
-
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		# given a certain number of actions taken and number of episodes
 		# How does epsilon change?
 		# probability of taking an action = Epsilon divided across all actions
 		# should return a tuple indicating the epsilon used at a certain timestep
+
+		# get timestep
+		self.timeStep = numTakenActions
+		# draw from range
+		self.epsilon = self.e_range[episodeNumber]
 		return self.epsilon
 		#raise NotImplementedError
 
@@ -106,17 +146,22 @@ if __name__ == '__main__':
 	# Run training Monte Carlo Method
 	for episode in range(numEpisodes):
 		agent.reset()
-		observation = hfoEnv.reset() # get init state from env
-		print('Obs:', observation)
+		# get init state from env
+		observation = hfoEnv.reset() 
 		status = 0
 
 		# loop until end of episode(status = 1)
+		# 1 loop = 1 state/step
 		while status==0:
+			# compute epsilon for this iteration
 			epsilon = agent.computeHyperparameters(numTakenActions, episode)
+			# Set epsilon (??)
 			agent.setEpsilon(epsilon) 
-			# makes copy of list
+			# makes copy of observation(list)
 			obsCopy = observation.copy() 
+			# convert to own representation
 			agent.setState(agent.toStateRepresentation(obsCopy))
+			# choose action
 			action = agent.act()
 			numTakenActions += 1
 			# get feedback from environment after taking that action
@@ -126,4 +171,5 @@ if __name__ == '__main__':
 			# reset observation for next state
 			observation = nextObservation
 
-		agent.learn() 
+		agent.learn()
+		print('Q: ',agent.Q) 
