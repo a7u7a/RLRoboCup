@@ -7,6 +7,7 @@ import argparse
 
 from collections import defaultdict
 import numpy as np
+import operator
 
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor = 0.99, epsilon = 1.0, initVals=0.0):
@@ -20,7 +21,8 @@ class MonteCarloAgent(Agent):
 		self.episodeStateActions = {}
 		self.rewards = []
 		
-		self.Q = {}
+		self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
+		self.pair = (((1, 2), (2, 2)), 'DRIBBLE_RIGHT')
 
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
@@ -28,6 +30,8 @@ class MonteCarloAgent(Agent):
 		self.e_range = (1/X**2)
 		# Normalize to fit range 0.0-1.0
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
+		
+		
 
 	def toStateRepresentation(self, state):
 		self.state = state
@@ -37,12 +41,12 @@ class MonteCarloAgent(Agent):
 		#raise NotImplementedError
 
 	def learn(self):
-		for item in self.episodeStateActions.keys():
-			self.Q[item] = np.average(self.rewards[self.episodeStateActions[item]:])
+		
+#		for item in self.episodeStateActions.keys():
+#				self.Q[item] = np.average(self.rewards[self.episodeStateActions[item]:])
 
 
 		# if state-action pair in dict
-		# 
 		# 
 		# should return complete Q-value table of all states
 		# should return Q-value estimate after update of the states you've 
@@ -53,21 +57,31 @@ class MonteCarloAgent(Agent):
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Use this to set these data to prepare your agent to learn
-		self.currentState = state
+		self.currentState = tuple(state)
 		self.actionTaken = action
 		self.reward = reward
 		self.status = status
 		self.nextState = nextState
 
 		# TODO: Add discount factor here somewhere!!
+
 		# Create tuple with state-action pair
-		pair = (tuple(self.currentState), self.actionTaken)
-		# If this is the first time S,A pair is seen, add to dict and note timestep
-		if pair not in self.episodeStateActions.keys():
-			self.episodeStateActions[pair] = self.timeStep
+		self.pair = (self.currentState, self.actionTaken)
+
+		# If this is the first time (S,A) pair is seen:
+		# (could be improved using defaultdict?)
+		if self.pair not in self.episodeStateActions:
+			# Add to dict and note timestep
+			self.episodeStateActions[self.pair] = self.timeStep
 		
 		# Append reward to list of rewards
 		self.rewards += [reward]
+
+		# Update Q: for every s,a found in episode
+		# use timestep as slicer index to 
+		# average from first time s,a to current time using
+		# list of rewards per timestep
+		self.Q[self.pair] = np.average(self.rewards[self.episodeStateActions[self.pair]:])
 		
 		
 
@@ -90,12 +104,21 @@ class MonteCarloAgent(Agent):
 		# calculate probability of selecting greedy or not
 		#nonGreedy = (self.epsilon/len(self.possibleActions))
 
-		# TODO: Find optimal action for state according to Q!
+	
+		# Find action with highest Q value given state:
+		# Could be improved by usung numpy dataframe?.
+		# Make subdict 'S' with all same S as in 'pair'
+		S = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
+		for item in self.Q:
+			if item[0] == self.pair[0]:
+				S[item] = self.Q[item]
+		# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+		optimalAction = max(S.items(), key=operator.itemgetter(1))[0][1]
 
 		p = np.random.uniform(0,1,1)
 		if p > self.epsilon:
 			# Pick best action
-			self.action = "KICK" # Change!
+			self.action = optimalAction # Change!
 			#print('GREEDY!: ',self.epsilon)
 		else:
 			# Act randomly
