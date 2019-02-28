@@ -37,8 +37,10 @@ class MonteCarloAgent(Agent):
 		self.discountFactor = self.initDiscountFactor
 		#self.epsilon = self.initEpsilon
 		self.episodeStateActions = {}
-		# reset timestep for new episode
+		# Reset timestep for new episode
 		self.timeStep = 0
+		# Reset rewards to zero
+		self.rewards = []
 		
 	def toStateRepresentation(self, state):
 		# Keep state representation
@@ -71,7 +73,6 @@ class MonteCarloAgent(Agent):
 			# Add to dict and note timestep
 			self.episodeStateActions[self.pair] = self.timeStep
 			
-		print('EP S,A: ',self.episodeStateActions)
 		# Append reward to list of rewards
 		self.rewards += [reward]
 
