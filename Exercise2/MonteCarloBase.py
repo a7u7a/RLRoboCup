@@ -8,6 +8,7 @@ import argparse
 from collections import defaultdict
 import numpy as np
 import operator
+from plotvalue import plot_value_and_policy
 
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor = 0.99, epsilon = 1.0, initVals=0.0):
@@ -21,7 +22,8 @@ class MonteCarloAgent(Agent):
 		self.episodeStateActions = {}
 		self.rewards = []
 		
-		self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
+		#self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
+		self.Q = defaultdict(float)
 		self.pair = (((1, 2), (2, 2)), 'DRIBBLE_RIGHT')
 
 		# List to schedule epsilon values from (assumes 5000 episodes)
@@ -31,29 +33,18 @@ class MonteCarloAgent(Agent):
 		# Normalize to fit range 0.0-1.0
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 		
-		
-
 	def toStateRepresentation(self, state):
+		# Keep state representation
 		self.state = state
-		# receive a state
-		# output to form suitable to my implementation
 		return self.state
-		#raise NotImplementedError
 
 	def learn(self):
 		
 #		for item in self.episodeStateActions.keys():
 #				self.Q[item] = np.average(self.rewards[self.episodeStateActions[item]:])
 
-
-		# if state-action pair in dict
-		# 
-		# should return complete Q-value table of all states
-		# should return Q-value estimate after update of the states you've 
-		# encountered in the episode ordered by their first 
-		# time appearance in the episode
 		return self.Q
-		#raise NotImplementedError
+
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Use this to set these data to prepare your agent to learn
@@ -82,38 +73,33 @@ class MonteCarloAgent(Agent):
 		# average from first time s,a to current time using
 		# list of rewards per timestep
 		self.Q[self.pair] = np.average(self.rewards[self.episodeStateActions[self.pair]:])
-		
-		
-
-		#raise NotImplementedError
 
 	def setState(self, state):
-		hello = state
-		#raise NotImplementedError
+		self.currentState = tuple(state)
 
 	# Use to "reset some states of the agent"
 	def reset(self):
 		# Also reset Q-values?
 		self.discountFactor = self.initDiscountFactor
-		self.epsilon = self.initEpsilon
+		#self.epsilon = self.initEpsilon
 		self.episodeStateActions = {}
 		#raise NotImplementedError
 
 	def act(self): # 
-		# should return the action that should be taken at every state
-		# calculate probability of selecting greedy or not
-		#nonGreedy = (self.epsilon/len(self.possibleActions))
-
-	
 		# Find action with highest Q value given state:
-		# Could be improved by usung numpy dataframe?.
 		# Make subdict 'S' with all same S as in 'pair'
-		S = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
-		for item in self.Q:
-			if item[0] == self.pair[0]:
-				S[item] = self.Q[item]
-		# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
-		optimalAction = max(S.items(), key=operator.itemgetter(1))[0][1]
+		# (Could be improved by usung numpy dataframe?)
+		S = defaultdict(float)
+		# if Q not empty
+		if self.Q:
+			for item in self.Q:
+				if item[0] == self.pair[0]:
+					S[item] = self.Q[item]
+			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+			optimalAction = max(S.items(), key=operator.itemgetter(1))[0][1]
+		else:
+			# if Q empty, act randomly
+			optimalAction = np.random.choice(self.possibleActions, 1)[0]
 
 		p = np.random.uniform(0,1,1)
 		if p > self.epsilon:
@@ -196,3 +182,6 @@ if __name__ == '__main__':
 
 		agent.learn()
 		print('Q: ',agent.Q) 
+
+
+# output dict with policy and values

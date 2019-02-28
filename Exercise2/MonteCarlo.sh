@@ -5,7 +5,7 @@
 # goalkeeper
 
 # "--headless" deleted after "--trials"
-./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 500 --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
+./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 5000 --headless --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
 sleep 5
 ./DiscreteHFO/Initiator.py --numTrials=5000 --numPlayingDefenseNPCs=1 --numAgents=1 &
 echo "Environment Initialized"
