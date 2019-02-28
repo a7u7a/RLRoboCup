@@ -8,7 +8,6 @@ import argparse
 from collections import defaultdict
 import numpy as np
 import operator
-from plotvalue import plot_value_and_policy
 
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor = 0.99, epsilon = 1.0, initVals=0.0):
@@ -21,10 +20,10 @@ class MonteCarloAgent(Agent):
 		# G = dict, where KEY= tuple state, action and VALUE= list of rewards 
 		self.episodeStateActions = {}
 		self.rewards = []
+		self.timeStep = 0
 		
 		#self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
 		self.Q = defaultdict(float)
-		self.pair = (((1, 2), (2, 2)), 'DRIBBLE_RIGHT')
 
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
@@ -32,6 +31,14 @@ class MonteCarloAgent(Agent):
 		self.e_range = (1/X**2)
 		# Normalize to fit range 0.0-1.0
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
+
+	def reset(self):
+		# Also reset Q-values?
+		self.discountFactor = self.initDiscountFactor
+		#self.epsilon = self.initEpsilon
+		self.episodeStateActions = {}
+		# reset timestep for new episode
+		self.timeStep = 0
 		
 	def toStateRepresentation(self, state):
 		# Keep state representation
@@ -60,11 +67,11 @@ class MonteCarloAgent(Agent):
 		self.pair = (self.currentState, self.actionTaken)
 
 		# If this is the first time (S,A) pair is seen:
-		# (could be improved using defaultdict?)
 		if self.pair not in self.episodeStateActions:
 			# Add to dict and note timestep
 			self.episodeStateActions[self.pair] = self.timeStep
-		
+			
+		print('EP S,A: ',self.episodeStateActions)
 		# Append reward to list of rewards
 		self.rewards += [reward]
 
@@ -73,17 +80,10 @@ class MonteCarloAgent(Agent):
 		# average from first time s,a to current time using
 		# list of rewards per timestep
 		self.Q[self.pair] = np.average(self.rewards[self.episodeStateActions[self.pair]:])
+		self.timeStep += 1 
 
 	def setState(self, state):
 		self.currentState = tuple(state)
-
-	# Use to "reset some states of the agent"
-	def reset(self):
-		# Also reset Q-values?
-		self.discountFactor = self.initDiscountFactor
-		#self.epsilon = self.initEpsilon
-		self.episodeStateActions = {}
-		#raise NotImplementedError
 
 	def act(self): # 
 		# Find action with highest Q value given state:
@@ -125,8 +125,6 @@ class MonteCarloAgent(Agent):
 		# probability of taking an action = Epsilon divided across all actions
 		# should return a tuple indicating the epsilon used at a certain timestep
 
-		# get timestep
-		self.timeStep = numTakenActions
 		# draw from range
 		self.epsilon = self.e_range[episodeNumber]
 		return self.epsilon
