@@ -20,11 +20,13 @@ class MonteCarloAgent(Agent):
 		# G = dict, where KEY= tuple state, action and VALUE= list of rewards 
 		self.episodeStateActions = {}
 		self.rewards = []
+		self.timeStepEpisode = 0
 		self.timeStep = 0
-		
+		self.pair = ()
 		#self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
 		self.Q = defaultdict(float)
-
+		self.valueList = []
+		
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
 		# Asymptote schedule for e-soft
@@ -35,12 +37,12 @@ class MonteCarloAgent(Agent):
 	def reset(self):
 		# Also reset Q-values?
 		self.discountFactor = self.initDiscountFactor
-		#self.epsilon = self.initEpsilon
-		self.episodeStateActions = {}
+		self.valueList = []
 		# Reset timestep for new episode
-		self.timeStep = 0
+		self.timeStepEpisode = 0
 		# Reset rewards to zero
 		self.rewards = []
+		self.episodeStateActions = {}
 		
 	def toStateRepresentation(self, state):
 		# Keep state representation
@@ -48,65 +50,68 @@ class MonteCarloAgent(Agent):
 		return self.state
 
 	def learn(self):
-		
-#		for item in self.episodeStateActions.keys():
-#				self.Q[item] = np.average(self.rewards[self.episodeStateActions[item]:])
-
-		return self.Q
-
+		#create a tuple for output
+		self.completeQ = (self.episodeNumber, self.valueList)
+		return self.Q, self.completeQ
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Use this to set these data to prepare your agent to learn
 		self.currentState = tuple(state)
 		self.actionTaken = action
-		self.reward = reward
 		self.status = status
 		self.nextState = nextState
 
-		# TODO: Add discount factor here somewhere!!
-
-		# Create tuple with state-action pair
-		self.pair = (self.currentState, self.actionTaken)
+		# Create tuple with current state-action pair
+		self.pair = (self.timeStep ,self.currentState, self.actionTaken)
 
 		# If this is the first time (S,A) pair is seen:
 		if self.pair not in self.episodeStateActions:
 			# Add to dict and note timestep
-			self.episodeStateActions[self.pair] = self.timeStep
-			
-		# Append reward to list of rewards
+			self.episodeStateActions[self.pair] = self.timeStepEpisode
+		# print("EP S,A:", self.episodeStateActions)
+		# Apply discount factor to previous rewards
+		self.rewards = [x * self.discountFactor for x in self.rewards]
+		# Append new reward to list of rewards
 		self.rewards += [reward]
 
 		# Update Q: for every s,a found in episode
-		# use timestep as slicer index to 
+		# use timeStepEpisode as slicer index to 
 		# average from first time s,a to current time using
 		# list of rewards per timestep
-		self.Q[self.pair] = np.average(self.rewards[self.episodeStateActions[self.pair]:])
-		self.timeStep += 1 
+		value = np.average(self.rewards[self.episodeStateActions[self.pair]:])
+		# append value to valuelist for learn() output
+		self.valueList.append(value)
+
+		# What if instead of replacing we add?
+		self.Q[self.pair] += value
+
+		# Update timestep counters
+		self.timeStepEpisode += 1 
+		self.timeStep += 1
 
 	def setState(self, state):
 		self.currentState = tuple(state)
 
 	def act(self): # 
-		# Find action with highest Q value given state:
-		# Make subdict 'S' with all same S as in 'pair'
+		# Find action with highest Q value given state and timeStep:
+		# Make subdict 'S' with all same State and timestep as in 'pair'
 		# (Could be improved by usung numpy dataframe?)
 		S = defaultdict(float)
 		# if Q not empty
 		if self.Q:
 			for item in self.Q:
-				if item[0] == self.pair[0]:
+				if item[0:2] == self.pair[0:2]:
 					S[item] = self.Q[item]
 			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
-			optimalAction = max(S.items(), key=operator.itemgetter(1))[0][1]
+			optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
 		else:
-			# if Q empty, act randomly
+			# if Q empty, act randomly(first step only)
 			optimalAction = np.random.choice(self.possibleActions, 1)[0]
 
 		p = np.random.uniform(0,1,1)
 		if p > self.epsilon:
 			# Pick best action
-			self.action = optimalAction # Change!
-			#print('GREEDY!: ',self.epsilon)
+			self.action = optimalAction
 		else:
 			# Act randomly
 			self.action = np.random.choice(self.possibleActions, 1)[0]
@@ -125,6 +130,8 @@ class MonteCarloAgent(Agent):
 		# How does epsilon change?
 		# probability of taking an action = Epsilon divided across all actions
 		# should return a tuple indicating the epsilon used at a certain timestep
+
+		self.episodeNumber = episodeNumber
 
 		# draw from range
 		self.epsilon = self.e_range[episodeNumber]
@@ -180,7 +187,8 @@ if __name__ == '__main__':
 			observation = nextObservation
 
 		agent.learn()
-		print('Q: ',agent.Q) 
+		#print('completeQ: ',agent.completeQ)
+		#print("Q: ", agent.Q)
 
 
 # output dict with policy and values
