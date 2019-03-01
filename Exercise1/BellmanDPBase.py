@@ -3,8 +3,9 @@ import numpy as np
 from plotvalue import plot_value_and_policy
 
 class BellmanDPSolver(object):
-	def __init__(self, discount_factor):
-		self.discount_factor = discount_factor
+	
+	def __init__(self, discountRate):
+		self.discountRate = discountRate
 		self.env = MDP()
 		self.initVs()
 
@@ -34,7 +35,7 @@ class BellmanDPSolver(object):
 				# fetch reward
 				reward = self.env.getRewards(s, a, next_state)
 				# add to the expectation values
-				Av[c] += prob * (reward + discount_factor * self.V[next_state])
+				Av[c] += prob * (reward + discountRate * self.V[next_state])
 				c = c+1
 			# find max value and write to dict
 			self.V[s] = np.max(Av)
@@ -45,8 +46,8 @@ class BellmanDPSolver(object):
 		# method must return a tuple of (optimal value function, policy)
 
 if __name__ == '__main__':
-	discount_factor = 1
-	solution = BellmanDPSolver(discount_factor)
+	discountRate = 1
+	solution = BellmanDPSolver(discountRate)
 	# run n times
 	for i in range(10):
 		values, policy = solution.BellmanUpdate()
