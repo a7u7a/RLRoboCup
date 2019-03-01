@@ -18,16 +18,15 @@ class MonteCarloAgent(Agent):
 		# Set init epsilon for reset purposes
 		self.initEpsilon = epsilon
 		# G = dict, where KEY= tuple state, action and VALUE= list of rewards 
+		self.episodeStateActions = {}
+		self.rewards = []
 		self.timeStepEpisode = 0
 		self.timeStep = 0
 		self.pair = ()
 		#self.Q = {(((1, 2), (2, 2)), 'DRIBBLE_RIGHT'):0}
 		self.Q = defaultdict(float)
-		# For all returns
-		self.returnsStateAction = defaultdict(list)
-		# For returns in episode
-		self.episodeStateAction = defaultdict(list)
-
+		self.valueList = []
+		
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
 		# Asymptote schedule for e-soft
@@ -35,21 +34,22 @@ class MonteCarloAgent(Agent):
 		# Normalize to fit range 0.0-1.0
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
-		# Set to true to print for debugging
-		self.P = False
-
 	def reset(self):
 		# Also reset Q-values?
 		self.discountFactor = self.initDiscountFactor
+		self.valueList = []
 		# Reset timestep for new episode
 		self.timeStepEpisode = 0
 		# Reset rewards to zero
-		self.episodeStateAction = defaultdict(list)
+		self.rewards = []
+		self.episodeStateActions = {}
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		self.episodeNumber = episodeNumber
-		# sample from scheduler
+
+		# draw from range
 		self.epsilon = self.e_range[episodeNumber]
+
 		return self.epsilon
 
 	def setEpsilon(self, epsilon):
@@ -65,41 +65,41 @@ class MonteCarloAgent(Agent):
 		return self.state
 
 	def act(self): # 
-		# Current timeStep and state
+		# Current state given timestep in episode
 		self.timeState = (self.timeStepEpisode ,self.currentState)
-		if self.P: print("timeState: ",self.timeState)
+		print("timeState: ",self.timeState)
 		# Find action with highest Q value given state and timeStep:
 		# Make subdict 'S' with all same State and timestep as in 'pair'
 		# (Could be improved by usung numpy dataframe?)
 		S = defaultdict(float)
 		# if Q not empty
-		if self.P: print("Q(act): ", self.Q)
+		print("Q(act): ", self.Q)
 		if self.Q:
 			for item in self.Q:
 				if item[0:2] == self.timeState:
 					S[item] = self.Q[item]
 			if S: # if S not empty
 			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
-				if self.P: print("S: ",S)
 				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
-				if self.P: print('Optimal action from S: ', optimalAction)
+				print('Optimal action from S: ', optimalAction)
 			else:
 				optimalAction = np.random.choice(self.possibleActions, 1)[0]
-				if self.P: print('S is empty, acting randomly')
+				print('S is empty, acting randomly')
 		else:
 			# if Q empty, act randomly(first step only)
 			optimalAction = np.random.choice(self.possibleActions, 1)[0]
-			if self.P: print('Q is empty, acting randomly')
+			print('Q is empty, acting randomly')
 
 		p = np.random.uniform(0,1,1)
 		if p > self.epsilon:
 			# Pick best action
 			self.action = optimalAction
-			if self.P: print("Optimal action taken: ", self.action)
+			print("Optimal action taken: ", self.action)
 		else:
 			# Act randomly
 			self.action = np.random.choice(self.possibleActions, 1)[0]
-			if self.P: print("Exploring: ", self.action)
+			print("Exploring: ", self.action)
+			#print('RANDOMLY!: ',self.epsilon)
 		return self.action
 
 	def setExperience(self, state, action, reward, status, nextState):
@@ -111,35 +111,39 @@ class MonteCarloAgent(Agent):
 
 		# Create tuple with current timestep and state-action pair
 		self.pair = (self.timeStepEpisode ,self.currentState, self.actionTaken)
-		if self.P: print("pair: ",self.pair)
-		# Apply discount factor
-		self.episodeStateAction[self.pair] = [x * self.discountFactor for x in self.episodeStateAction[self.pair]]
-		# Append new reward
-		self.episodeStateAction[self.pair] += [reward]
+		print("pair: ", self.pair)
 
+		# If this is the first time (S,A) pair is seen:
+		if self.pair not in self.episodeStateActions:
+			# Add to dict and note timestep
+			self.episodeStateActions[self.pair] = self.timeStepEpisode
+
+		# Apply discount factor to previous rewards
+		self.rewards = [x * self.discountFactor for x in self.rewards]
+		# Append new reward to list of rewards
+		self.rewards += [reward]
+		print("Rewards in episode: ", self.rewards)
+
+		# Update Q: for every s,a found in episode
+		# use timeStepEpisode as slicer index to 
+		# average from first time s,a to current time using
+		# list of rewards per timestep
+		value = np.average(self.rewards[self.episodeStateActions[self.pair]:])
+		# append value to valuelist for learn() output
+		self.valueList.append(value)
+
+		# What if instead of replacing we add?
+		self.Q[self.pair] += value
+		print("Q(setExperience): ", self.Q)
+
+		# Update timestep counters
 		self.timeStepEpisode += 1 
 		self.timeStep += 1
 
 	def learn(self):
-
-		# Take 'episodeStateAction' list values and append to returnsStateAction
-		# could be made inside setExperience?
-		for item in self.episodeStateAction:
-			self.returnsStateAction[item] += self.episodeStateAction[item]
-		
-		# temp dict to build completeQ list
-		valuesList = defaultdict(int)
-
-		# Take 'returnsStateAction' list of values, average values and add to Q
-		for item in self.returnsStateAction:
-			value = np.average(self.returnsStateAction[item])
-			self.Q[item] = value
-			valuesList[item[0]] = value
-
 		#create a tuple for output
-		self.completeQ = (self.episodeNumber, list(valuesList.values()))
-
-		if self.P: print("CompleteQ: ", self.completeQ)
+		self.completeQ = (self.episodeNumber, self.valueList)
+		print("CompleteQ: ", self.completeQ)
 		return self.Q, self.completeQ
 
 
@@ -173,7 +177,7 @@ if __name__ == '__main__':
 		# loop until end of episode(status = 1)
 		# 1 loop = 1 state/step
 		while status==0:
-			#print("start")
+			print("start")
 			# compute epsilon for this iteration
 			epsilon = agent.computeHyperparameters(numTakenActions, episode)
 			# Set epsilon (??)
@@ -191,7 +195,7 @@ if __name__ == '__main__':
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			# reset observation for next state
 			observation = nextObservation
-			#print("end")
+			print("end")
 
 		agent.learn()
 		#print('completeQ: ',agent.completeQ)
