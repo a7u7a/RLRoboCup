@@ -44,15 +44,61 @@ class MonteCarloAgent(Agent):
 		self.rewards = []
 		self.episodeStateActions = {}
 		
+	def computeHyperparameters(self, numTakenActions, episodeNumber):
+		self.episodeNumber = episodeNumber
+
+		# draw from range
+		self.epsilon = self.e_range[episodeNumber]
+
+		return self.epsilon
+
+	def setEpsilon(self, epsilon):
+		self.epsilon = epsilon
+		return self.epsilon		
+
+	def setState(self, state):
+		self.currentState = tuple(state)
+
 	def toStateRepresentation(self, state):
 		# Keep state representation
 		self.state = state
 		return self.state
 
-	def learn(self):
-		#create a tuple for output
-		self.completeQ = (self.episodeNumber, self.valueList)
-		return self.Q, self.completeQ
+	def act(self): # 
+		# Current state given timestep in episode
+		self.timeState = (self.timeStepEpisode ,self.currentState)
+		#print("timeState: ",self.timeState)
+		# Find action with highest Q value given state and timeStep:
+		# Make subdict 'S' with all same State and timestep as in 'pair'
+		# (Could be improved by usung numpy dataframe?)
+		S = defaultdict(float)
+		# if Q not empty
+		if self.Q:
+			for item in self.Q:
+				if item[0:2] == self.timeState:
+					S[item] = self.Q[item]
+			if S:
+			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
+			else:
+				optimalAction = np.random.choice(self.possibleActions, 1)[0]
+				#print('S is empty, acting randomly')
+		else:
+			# if Q empty, act randomly(first step only)
+			optimalAction = np.random.choice(self.possibleActions, 1)[0]
+			#print('Q is empty, acting randomly')
+
+		#print('Q: ',self.Q)
+
+		p = np.random.uniform(0,1,1)
+		if p > self.epsilon:
+			# Pick best action
+			self.action = optimalAction
+		else:
+			# Act randomly
+			self.action = np.random.choice(self.possibleActions, 1)[0]
+			#print('RANDOMLY!: ',self.epsilon)
+		return self.action
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Use this to set these data to prepare your agent to learn
@@ -61,14 +107,15 @@ class MonteCarloAgent(Agent):
 		self.status = status
 		self.nextState = nextState
 
-		# Create tuple with current state-action pair
-		self.pair = (self.timeStep ,self.currentState, self.actionTaken)
+		# Create tuple with current timestep and state-action pair
+		self.pair = (self.timeStepEpisode ,self.currentState, self.actionTaken)
+		#print("pair: ", self.pair)
 
 		# If this is the first time (S,A) pair is seen:
 		if self.pair not in self.episodeStateActions:
 			# Add to dict and note timestep
 			self.episodeStateActions[self.pair] = self.timeStepEpisode
-		# print("EP S,A:", self.episodeStateActions)
+
 		# Apply discount factor to previous rewards
 		self.rewards = [x * self.discountFactor for x in self.rewards]
 		# Append new reward to list of rewards
@@ -89,54 +136,11 @@ class MonteCarloAgent(Agent):
 		self.timeStepEpisode += 1 
 		self.timeStep += 1
 
-	def setState(self, state):
-		self.currentState = tuple(state)
+	def learn(self):
+		#create a tuple for output
+		self.completeQ = (self.episodeNumber, self.valueList)
+		return self.Q, self.completeQ
 
-	def act(self): # 
-		# Find action with highest Q value given state and timeStep:
-		# Make subdict 'S' with all same State and timestep as in 'pair'
-		# (Could be improved by usung numpy dataframe?)
-		S = defaultdict(float)
-		# if Q not empty
-		if self.Q:
-			for item in self.Q:
-				if item[0:2] == self.pair[0:2]:
-					S[item] = self.Q[item]
-			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
-			optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
-		else:
-			# if Q empty, act randomly(first step only)
-			optimalAction = np.random.choice(self.possibleActions, 1)[0]
-
-		p = np.random.uniform(0,1,1)
-		if p > self.epsilon:
-			# Pick best action
-			self.action = optimalAction
-		else:
-			# Act randomly
-			self.action = np.random.choice(self.possibleActions, 1)[0]
-			#print('RANDOMLY!: ',self.epsilon)
-	
-		return self.action
-		#raise NotImplementedError
-
-	def setEpsilon(self, epsilon):
-		self.epsilon = epsilon
-		return self.epsilon
-		#raise NotImplementedError
-
-	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		# given a certain number of actions taken and number of episodes
-		# How does epsilon change?
-		# probability of taking an action = Epsilon divided across all actions
-		# should return a tuple indicating the epsilon used at a certain timestep
-
-		self.episodeNumber = episodeNumber
-
-		# draw from range
-		self.epsilon = self.e_range[episodeNumber]
-		return self.epsilon
-		#raise NotImplementedError
 
 # DO NOT CHANGE!
 if __name__ == '__main__':
@@ -168,6 +172,7 @@ if __name__ == '__main__':
 		# loop until end of episode(status = 1)
 		# 1 loop = 1 state/step
 		while status==0:
+			#print("start")
 			# compute epsilon for this iteration
 			epsilon = agent.computeHyperparameters(numTakenActions, episode)
 			# Set epsilon (??)
@@ -185,6 +190,7 @@ if __name__ == '__main__':
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			# reset observation for next state
 			observation = nextObservation
+			#print("end")
 
 		agent.learn()
 		#print('completeQ: ',agent.completeQ)
