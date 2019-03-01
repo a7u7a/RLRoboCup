@@ -4,16 +4,14 @@
 # Cannot run an environment where defending agents exist but none are playing
 # goalkeeper
 
-# "--headless" deleted after "--trials"
-./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 5000 --headless --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
+./../../../bin/HFO --defense-agents=2 --offense-agents=1 --offense-on-ball 11 --trials 5000  --deterministic --discrete=True --frames-per-trial 2000 --untouched-time 2000 &
 sleep 5
-./DiscreteHFO/Initiator.py --numTrials=5000 --numPlayingDefenseNPCs=1 --numAgents=1 &
+./DiscreteHFO/Initiator.py --numTrials=500 --numPlayingDefenseNPCs=1 --numAgents=1 &
 echo "Environment Initialized"
-
 # Sleep is needed to make sure doesn't get connected too soon, as unum 1 (goalie)
-sleep 5
 
-./MonteCarloBase.py --numEpisodes=5000 --numOpponents=1 &
+sleep 5
+./SARSABase.py --numOpponents=1 --numEpisodes=5000 &
 echo "Attacker Controller Initialized"
 
 sleep 5
@@ -21,7 +19,7 @@ sleep 5
 echo "Goalkeeper Initialized"
 
 sleep 5
-./DiscreteHFO/DiscretizedDefendingPlayer.py --id=1 --numEpisodes=5000 &
+./DiscreteHFO/DiscretizedDefendingPlayer.py --numEpisodes=5000 --id=1 &
 echo "Defending Player Initialized"
 
 sleep 5
