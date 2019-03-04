@@ -8,8 +8,11 @@ import argparse
 from collections import defaultdict
 import numpy as np
 
+# TODO: fix variable names!(action, state)
+# Do not use numtaken actions as iterator for learn!
+
 class SARSAAgent(Agent):
-	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
+	def __init__(self, learningRate = 0.1, discountFactor = 0.99, epsilon = 1, initVals = 0.0):
 		super(SARSAAgent, self).__init__()
 		self.learningRate = learningRate
 		self.discountFactor = discountFactor
@@ -31,11 +34,12 @@ class SARSAAgent(Agent):
 
 	def reset(self):
 		self.timeStepEpisode = 0 
+		self.exp = []
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		self.numTakenActions = numTakenActions
 		self.epsilon = self.e_range[episodeNumber]
-		return self.epsilon	
+		return self.learningRate, self.epsilon	
 	
 	def setEpsilon(self, epsilon):
 		return self.epsilon	
@@ -48,7 +52,6 @@ class SARSAAgent(Agent):
 		return self.currentState
 
 	def toStateRepresentation(self, state):
-
 		self.state = state
 		return self.state
 
@@ -91,41 +94,46 @@ class SARSAAgent(Agent):
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Store experience
-		self.state = state
+		self.state = tuple(state)
 		self.action = action
 		self.reward = reward
-		self.nextState = nextState
+		self.nextState = tuple(nextState)
 
 		self.exp += [[self.state, self.action, self.reward, self.nextState]]
 
 		self.timeStepEpisode += 1 
 
 	def learn(self):
-		
-		for item in range(self.numTakenActions+1):
-			if item + 1 > numTakenActions :
-        		break
-    		else:
+		print("LEARN")
+		print("taken actions: ", self.numTakenActions)
+		print('exp: ', self.exp)
+		for item in range(self.numTakenActions-2):
+			print('item: ',item)
+			if item + 1 > self.numTakenActions-2:
+				print('ups')
+				break
+			else:
 				timeStep = item
 				nextTimeStep = item + 1
-				
+
 				state = self.exp[item][0]
 				nextState = self.exp[item][3]
-				
+
 				action = self.exp[item][1]
-				nextAction = self.exp[item+1][1]
-				
+				print('exp[item]: ',self.exp[item])
+				nextAction = self.exp[item + 1][1]
+
 				reward = self.exp[item][2]
-				
-				value = Q[(timeStep,state,action)]
-				nextvalue = Q[(nextTimeStep, nextState, nextAction)]
-				
-				Q[(timeStep,state,action)] = value + learningRate*(reward + discountFactor*value - value)
+
+				value = self.Q[(timeStep,state,action)]
+				nextvalue = self.Q[(nextTimeStep, nextState, nextAction)]
+
+				self.Q[(timeStep,state,action)] = value + self.learningRate*(reward + self.discountFactor*value - value)
 				
 		# TODO: return updateChange
 		
 
-		return self.updateChange
+		#return self.updateChange
 
 if __name__ == '__main__':
 
@@ -166,7 +174,7 @@ if __name__ == '__main__':
 			numTakenActions += 1
 
 			nextObservation, reward, done, status = hfoEnv.step(action)
-			print(obsCopy, action, reward, nextObservation)
+			#print(obsCopy, action, reward, nextObservation)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			
 			if not epsStart :
@@ -176,7 +184,7 @@ if __name__ == '__main__':
 			
 			observation = nextObservation
 
-		agent.setExperience(agent.toStateRepresentation(nextObservation), None, None, None, None)
+		#agent.setExperience(agent.toStateRepresentation(nextObservation), None, None, None, None)
 		agent.learn()
 
 	
