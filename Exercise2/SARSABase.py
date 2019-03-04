@@ -5,6 +5,9 @@ from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
 
+from collections import defaultdict
+import numpy as np
+
 class SARSAAgent(Agent):
 	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
 		super(SARSAAgent, self).__init__()
@@ -12,11 +15,23 @@ class SARSAAgent(Agent):
 		self.discountFactor = discountFactor
 		self.epsilon = epsilon
 
+		self.Q = defaultdict(float)
+		self.exp = []
+
+		# List to schedule epsilon values from (assumes 5000 episodes)
+		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
+		# Asymptote schedule for e-soft
+		self.e_range = (1/X**2)
+		# Normalize to fit range 0.0-1.0
+		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
+
 	def reset(self):
 		raise NotImplementedError
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
-		raise NotImplementedError	
+		self.numTakenActions = numTakenActions
+		self.epsilon = self.e_range[episodeNumber]
+		return self.epsilon	
 	
 	def setEpsilon(self, epsilon):
 		raise NotImplementedError
@@ -25,19 +40,70 @@ class SARSAAgent(Agent):
 		raise NotImplementedError		
 
 	def setState(self, state):
-		raise NotImplementedError
+		self.currentState = state
 
 	def toStateRepresentation(self, state):
-		raise NotImplementedError
+		# Keep state representation
+		self.state = state
+		return self.state
 
 	def act(self):
-		raise NotImplementedError
+
+		# Current timeStep and state
+		self.timeState = (self.timeStepEpisode ,self.currentState)
+		# Find action with highest Q value given state and timeStep:
+		# Make subdict 'S' with all same State and timestep as in 'pair'
+		S = defaultdict(float)
+		# if Q not empty
+		if self.P: print("Q(act): ", self.Q)
+		if self.Q:
+			for item in self.Q:
+				if item[0:2] == self.timeState:
+					S[item] = self.Q[item]
+			if S: # if S not empty
+			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+				if self.P: print("S: ",S)
+				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
+				if self.P: print('Optimal action from S: ', optimalAction)
+			else:
+				optimalAction = np.random.choice(self.possibleActions, 1)[0]
+				if self.P: print('S is empty, acting randomly')
+		else:
+			# if Q empty, act randomly(first step only)
+			optimalAction = np.random.choice(self.possibleActions, 1)[0]
+			if self.P: print('Q is empty, acting randomly')
+
+		p = np.random.uniform(0,1,1)
+		if p > self.epsilon:
+			# Pick best action
+			self.action = optimalAction
+			if self.P: print("Optimal action taken: ", self.action)
+		else:
+			# Act randomly
+			self.action = np.random.choice(self.possibleActions, 1)[0]
+			if self.P: print("Exploring: ", self.action)
+		return self.action
 
 	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
+		# Store experience
+		self.state = state
+		self.action = action
+		self.reward = reward
+		self.nextState = nextState
+
+		self.exp += [[self.state, self.action, self.reward, self.nextState]]
+
+
+		
 
 	def learn(self):
-		raise NotImplementedError
+		# by using numTakenActions we exclude terminal state
+		for item in range(self.numTakenActions):
+
+
+
+
+		return self.updateChange
 
 if __name__ == '__main__':
 
