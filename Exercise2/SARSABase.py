@@ -15,6 +15,7 @@ class SARSAAgent(Agent):
 		self.discountFactor = discountFactor
 		self.epsilon = epsilon
 
+		self.timeStepEpisode = 0
 		self.Q = defaultdict(float)
 		self.exp = []
 
@@ -25,8 +26,11 @@ class SARSAAgent(Agent):
 		# Normalize to fit range 0.0-1.0
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
+		# Set to true to print for debugging
+		self.P = True
+
 	def reset(self):
-		raise NotImplementedError
+		self.timeStepEpisode = 0 
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		self.numTakenActions = numTakenActions
@@ -34,16 +38,17 @@ class SARSAAgent(Agent):
 		return self.epsilon	
 	
 	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		return self.epsilon	
 
 	def setLearningRate(self, learningRate):
-		raise NotImplementedError		
+		return self.learningRate
 
 	def setState(self, state):
 		self.currentState = state
+		return self.currentState
 
 	def toStateRepresentation(self, state):
-		# Keep state representation
+
 		self.state = state
 		return self.state
 
@@ -93,15 +98,32 @@ class SARSAAgent(Agent):
 
 		self.exp += [[self.state, self.action, self.reward, self.nextState]]
 
-
-		
+		self.timeStepEpisode += 1 
 
 	def learn(self):
-		# by using numTakenActions we exclude terminal state
-		for item in range(self.numTakenActions):
-
-
-
+		
+		for item in range(self.numTakenActions+1):
+			if item + 1 > numTakenActions :
+        		break
+    		else:
+				timeStep = item
+				nextTimeStep = item + 1
+				
+				state = self.exp[item][0]
+				nextState = self.exp[item][3]
+				
+				action = self.exp[item][1]
+				nextAction = self.exp[item+1][1]
+				
+				reward = self.exp[item][2]
+				
+				value = Q[(timeStep,state,action)]
+				nextvalue = Q[(nextTimeStep, nextState, nextAction)]
+				
+				Q[(timeStep,state,action)] = value + learningRate*(reward + discountFactor*value - value)
+				
+		# TODO: return updateChange
+		
 
 		return self.updateChange
 
