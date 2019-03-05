@@ -15,6 +15,8 @@ class QLearningAgent(Agent):
 		self.learningRate = learningRate
 		self.discountFactor = discountFactor
 		self.epsilon = epsilon
+		self.Q = defaultdict(float)
+		self.timeStepEpisode = 0
 
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
@@ -24,10 +26,10 @@ class QLearningAgent(Agent):
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
 		# Set to true to print for debugging
-		self.P = False
+		self.P = True
 
 	def reset(self):
-		raise NotImplementedError
+		self.timeStepEpisode = 0
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		self.epsilon = self.e_range[episodeNumber]
@@ -42,7 +44,7 @@ class QLearningAgent(Agent):
 		return self.learningRate
 
 	def setState(self, state):
-		self.currentState = state
+		self.currentState = tuple(state)
 
 	def toStateRepresentation(self, state):
 		self.state = state
@@ -50,17 +52,68 @@ class QLearningAgent(Agent):
 
 	def act(self):
 		# Choose action from state using policy derived from Q
+		# find matching state, select action with max value e-greedy
 
-		raise NotImplementedError
+		S = defaultdict(float)
+
+		if self.Q: # if Q not empty
+			for item in self.Q:
+				if item[0] == self.state:
+					S[item] = self.Q[item]
+			if S: # if S not empty
+				greedyAction = max(S.items(), key=operator.itemgetter(1))[0][1]
+				if self.P: print('greedyAction(act)= ', greedyAction)
+			else: # if self is empty: act randomly
+				greedyAction = np.random.choice(self.possibleActions, 1)[0]
+		else: # if Q empty, act randomly
+			greedyAction = np.random.choice(self.possibleActions, 1)[0]
+		
+		p = np.random.uniform(0,1,1)
+		if p > self.epsilon:
+			# Pick best action
+			self.action = greedyAction
+			if self.P: print("Greedy action taken: ", self.action)
+		else:
+			# Act randomly
+			self.action = np.random.choice(self.possibleActions, 1)[0]
+			if self.P: print("Exploring: ", self.action)
+		
+		return self.action
 
 	def setExperience(self, state, action, reward, status, nextState):
-		self.currentState = state
+		self.currentState = tuple(state)
 		self.action = action
-		self.nextState = nextState
-
+		if type(nextState) == str:
+			self.nextState = nextState
+		else:
+			self.nextState = tuple(nextState)
+		self.timeStepEpisode += 1
+		self.reward = reward
 
 	def learn(self):
-		raise NotImplementedError
+		# Improve the policy using update 
+		pair = (self.currentState, self.action)
+		nextPair = ()
+
+		S = defaultdict(float)
+
+		if self.Q: # if Q not empty
+			for item in self.Q:
+				if item[0] == self.nextState: # find matching state in Q 
+					S[item] = self.Q[item]
+			if S: # if S not empty
+				maxV = max(S.items(), key=operator.itemgetter(1))[1]
+				if self.P: print('maxA(learn)= ', maxV)
+			else:
+				maxV = 0
+		else:
+			maxV = 0
+
+		valueAfterUpdate = self.Q[pair]
+		valueBeforeUpdate = valueAfterUpdate + self.learningRate*(self.reward+self.discountFactor*maxV-valueAfterUpdate)
+		self.Q[pair] = valueBeforeUpdate
+
+		return valueAfterUpdate
 
 
 if __name__ == '__main__':
@@ -100,6 +153,7 @@ if __name__ == '__main__':
 			nextObservation, reward, done, status = hfoEnv.step(action)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			update = agent.learn()
+			print('valueAfterUpdate: ',agent.learn())
 			
 			observation = nextObservation
 	

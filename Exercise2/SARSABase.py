@@ -97,8 +97,7 @@ class SARSAAgent(Agent):
 			else: # If self is empty: act randomly
 				optimalAction = np.random.choice(self.possibleActions, 1)[0]
 				if self.P: print('S is empty, acting randomly: ',optimalAction)
-		else:
-			# if Q empty, act randomly(first step only)
+		else: # if Q empty, act randomly(first step only)
 			optimalAction = np.random.choice(self.possibleActions, 1)[0]
 			if self.P: print('Q is empty, acting randomly: ',optimalAction)
 
