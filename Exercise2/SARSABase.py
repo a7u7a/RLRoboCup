@@ -7,6 +7,7 @@ import argparse
 
 from collections import defaultdict
 import numpy as np
+import operator
 
 # TODO: fix variable names!(action, state)
 # Do not use numtaken actions as iterator for learn!
@@ -20,7 +21,6 @@ class SARSAAgent(Agent):
 
 		self.timeStepEpisode = 0
 		self.Q = defaultdict(float)
-		self.exp = []
 
 		# List to schedule epsilon values from (assumes 5000 episodes)
 		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
@@ -30,11 +30,10 @@ class SARSAAgent(Agent):
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
 		# Set to true to print for debugging
-		self.P = True
+		self.P = False
 
 	def reset(self):
 		self.timeStepEpisode = 0 
-		self.exp = []
 
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
 		self.numTakenActions = numTakenActions
@@ -48,7 +47,7 @@ class SARSAAgent(Agent):
 		return self.learningRate
 
 	def setState(self, state):
-		self.currentState = state
+		self.currentState = tuple(state)
 		return self.currentState
 
 	def toStateRepresentation(self, state):
@@ -63,7 +62,7 @@ class SARSAAgent(Agent):
 		# Make subdict 'S' with all same State and timestep as in 'pair'
 		S = defaultdict(float)
 		# if Q not empty
-		if self.P: print("Q(act): ", self.Q)
+		if self.P: print("Q_act= ", self.Q)
 		if self.Q:
 			for item in self.Q:
 				if item[0:2] == self.timeState:
@@ -90,6 +89,7 @@ class SARSAAgent(Agent):
 			# Act randomly
 			self.action = np.random.choice(self.possibleActions, 1)[0]
 			if self.P: print("Exploring: ", self.action)
+
 		return self.action
 
 	def setExperience(self, state, action, reward, status, nextState):
@@ -97,43 +97,54 @@ class SARSAAgent(Agent):
 		self.state = tuple(state)
 		self.action = action
 		self.reward = reward
-		self.nextState = tuple(nextState)
-
-		self.exp += [[self.state, self.action, self.reward, self.nextState]]
+		if type(nextState) == str:
+			self.nextState = nextState
+		else:
+			self.nextState = tuple(nextState)
+		if self.P: print('nextState = ',self.nextState)
 
 		self.timeStepEpisode += 1 
 
 	def learn(self):
-		print("LEARN")
-		print("taken actions: ", self.numTakenActions)
-		print('exp: ', self.exp)
-		for item in range(self.numTakenActions-2):
-			print('item: ',item)
-			if item + 1 > self.numTakenActions-2:
-				print('ups')
-				break
-			else:
-				timeStep = item
-				nextTimeStep = item + 1
 
-				state = self.exp[item][0]
-				nextState = self.exp[item][3]
-
-				action = self.exp[item][1]
-				print('exp[item]: ',self.exp[item])
-				nextAction = self.exp[item + 1][1]
-
-				reward = self.exp[item][2]
-
-				value = self.Q[(timeStep,state,action)]
-				nextvalue = self.Q[(nextTimeStep, nextState, nextAction)]
-
-				self.Q[(timeStep,state,action)] = value + self.learningRate*(reward + self.discountFactor*value - value)
-				
-		# TODO: return updateChange
+		# Choose next action
+		# Use next action to get Q(S',A')
+		self.nextTimeState = (self.timeStepEpisode + 1 ,self.nextState)
+		S = defaultdict(float)
 		
+		if self.P: print("Q_learn= ", self.Q)
+		if self.Q: # if Q not empty
+			for item in self.Q:
+				# If subitems in Q matches nextTimeState
+				if item[0:2] == self.nextTimeState:
+					# Add entry to S dict
+					S[item] = self.Q[item]
+			if S: # if S not empty
+				# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
+			else:
+				# If self is empty: act randomly
+				optimalAction = np.random.choice(self.possibleActions, 1)[0]
+		else:
+			# if Q empty, act randomly(first step only)
+			optimalAction = np.random.choice(self.possibleActions, 1)[0]
 
-		#return self.updateChange
+		p = np.random.uniform(0,1,1)
+		if p > self.epsilon:
+			# Pick best action
+			self.nextAction = optimalAction
+		else:
+			# Act randomly
+			self.nextAction = np.random.choice(self.possibleActions, 1)[0]
+			
+		value = self.Q[self.timeStepEpisode, self.currentState, self.action]
+		nextValue = self.Q[self.timeStepEpisode + 1, self.nextState, self.nextAction]
+		valueAfterUpdate = value + self.learningRate*(self.reward + self.discountFactor*nextValue - value)
+		self.Q[self.timeStepEpisode, self.currentState, self.action] = valueAfterUpdate
+
+		# (Q(s_t,a_t)(t+1) - Q(s_t,a_t)(t))
+		self.updateChange = valueAfterUpdate - value
+		return self.updateChange
 
 if __name__ == '__main__':
 
@@ -164,6 +175,7 @@ if __name__ == '__main__':
 		epsStart = True
 
 		while status==0:
+			print('START')
 			learningRate, epsilon = agent.computeHyperparameters(numTakenActions, episode)
 			agent.setEpsilon(epsilon)
 			agent.setLearningRate(learningRate)
@@ -177,12 +189,14 @@ if __name__ == '__main__':
 			#print(obsCopy, action, reward, nextObservation)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			
+			# skip agent.learn() on first iteration
 			if not epsStart :
 				agent.learn()
 			else:
 				epsStart = False
 			
 			observation = nextObservation
+			print('END')
 
 		#agent.setExperience(agent.toStateRepresentation(nextObservation), None, None, None, None)
 		agent.learn()
