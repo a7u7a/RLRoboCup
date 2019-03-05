@@ -5,37 +5,63 @@ from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
 
+from collections import defaultdict
+import numpy as np
+import operator
+
 class QLearningAgent(Agent):
-	def __init__(self, learningRate, discountFactor, epsilon, initVals=0.0):
+	def __init__(self, learningRate = 0.1, discountFactor = 0.9, epsilon = 1 , initVals=0.0):
 		super(QLearningAgent, self).__init__()
-		
+		self.learningRate = learningRate
+		self.discountFactor = discountFactor
+		self.epsilon = epsilon
 
-	def learn(self):
-		raise NotImplementedError
+		# List to schedule epsilon values from (assumes 5000 episodes)
+		X = np.linspace(0.01, 0.05, 5000, endpoint=True)
+		# Asymptote schedule for e-soft
+		self.e_range = (1/X**2)
+		# Normalize to fit range 0.0-1.0
+		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
-	def act(self):
-		raise NotImplementedError
-
-	def toStateRepresentation(self, state):
-		raise NotImplementedError
-
-	def setState(self, state):
-		raise NotImplementedError
-
-	def setExperience(self, state, action, reward, status, nextState):
-		raise NotImplementedError
-
-	def setLearningRate(self, learningRate):
-		raise NotImplementedError
-
-	def setEpsilon(self, epsilon):
-		raise NotImplementedError
+		# Set to true to print for debugging
+		self.P = False
 
 	def reset(self):
 		raise NotImplementedError
 		
 	def computeHyperparameters(self, numTakenActions, episodeNumber):
+		self.epsilon = self.e_range[episodeNumber]
+		return self.learningRate, self.epsilon		
+
+	def setEpsilon(self, epsilon):
+		self.epsilon = epsilon
+		return self.epsilon
+
+	def setLearningRate(self, learningRate):
+		self.learningRate = learningRate	
+		return self.learningRate
+
+	def setState(self, state):
+		self.currentState = state
+
+	def toStateRepresentation(self, state):
+		self.state = state
+		return self.state
+
+	def act(self):
+		# Choose action from state using policy derived from Q
+
 		raise NotImplementedError
+
+	def setExperience(self, state, action, reward, status, nextState):
+		self.currentState = state
+		self.action = action
+		self.nextState = nextState
+
+
+	def learn(self):
+		raise NotImplementedError
+
 
 if __name__ == '__main__':
 

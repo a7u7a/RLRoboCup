@@ -18,6 +18,7 @@ class SARSAAgent(Agent):
 		self.learningRate = learningRate
 		self.discountFactor = discountFactor
 		self.epsilon = epsilon
+		self.nextAction = ''
 
 		self.timeStepEpisode = 0
 		self.Q = defaultdict(float)
@@ -30,7 +31,7 @@ class SARSAAgent(Agent):
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
 		# Set to true to print for debugging
-		self.P = False
+		self.P = True
 
 	def reset(self):
 		self.timeStepEpisode = 0 
@@ -55,42 +56,11 @@ class SARSAAgent(Agent):
 		return self.state
 
 	def act(self):
-
-		# Current timeStep and state
-		self.timeState = (self.timeStepEpisode ,self.currentState)
-		# Find action with highest Q value given state and timeStep:
-		# Make subdict 'S' with all same State and timestep as in 'pair'
-		S = defaultdict(float)
-		# if Q not empty
-		if self.P: print("Q_act= ", self.Q)
-		if self.Q:
-			for item in self.Q:
-				if item[0:2] == self.timeState:
-					S[item] = self.Q[item]
-			if S: # if S not empty
-			# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
-				if self.P: print("S: ",S)
-				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
-				if self.P: print('Optimal action from S: ', optimalAction)
-			else:
-				optimalAction = np.random.choice(self.possibleActions, 1)[0]
-				if self.P: print('S is empty, acting randomly')
-		else:
-			# if Q empty, act randomly(first step only)
-			optimalAction = np.random.choice(self.possibleActions, 1)[0]
-			if self.P: print('Q is empty, acting randomly')
-
-		p = np.random.uniform(0,1,1)
-		if p > self.epsilon:
-			# Pick best action
-			self.action = optimalAction
-			if self.P: print("Optimal action taken: ", self.action)
-		else:
-			# Act randomly
-			self.action = np.random.choice(self.possibleActions, 1)[0]
-			if self.P: print("Exploring: ", self.action)
-
-		return self.action
+		if self.nextAction:
+			return self.nextAction
+		else: 
+			self.nextAction = np.random.choice(self.possibleActions, 1)[0]
+		return self.nextAction
 
 	def setExperience(self, state, action, reward, status, nextState):
 		# Store experience
@@ -106,13 +76,12 @@ class SARSAAgent(Agent):
 		self.timeStepEpisode += 1 
 
 	def learn(self):
-
-		# Choose next action
 		# Use next action to get Q(S',A')
-		self.nextTimeState = (self.timeStepEpisode + 1 ,self.nextState)
+		self.nextTimeState = (self.timeStepEpisode ,self.nextState)
+		if self.P: print('nextTimeState=',self.nextTimeState)
 		S = defaultdict(float)
 		
-		if self.P: print("Q_learn= ", self.Q)
+		#if self.P: print("Q_learn= ", self.Q)
 		if self.Q: # if Q not empty
 			for item in self.Q:
 				# If subitems in Q matches nextTimeState
@@ -121,21 +90,27 @@ class SARSAAgent(Agent):
 					S[item] = self.Q[item]
 			if S: # if S not empty
 				# Get KEY of max value from dict 'S'. get only second item from tuple in KEY, which is action
+				# Return action of max value from sublist S
+				#if self.P: print("S: ",S)
 				optimalAction = max(S.items(), key=operator.itemgetter(1))[0][2]
-			else:
-				# If self is empty: act randomly
+				if self.P: print('optimal action(learn)= ',optimalAction)
+			else: # If self is empty: act randomly
 				optimalAction = np.random.choice(self.possibleActions, 1)[0]
+				if self.P: print('S is empty, acting randomly: ',optimalAction)
 		else:
 			# if Q empty, act randomly(first step only)
 			optimalAction = np.random.choice(self.possibleActions, 1)[0]
+			if self.P: print('Q is empty, acting randomly: ',optimalAction)
 
 		p = np.random.uniform(0,1,1)
 		if p > self.epsilon:
 			# Pick best action
 			self.nextAction = optimalAction
+			if self.P: print("Optimal action taken: ", self.nextAction)
 		else:
 			# Act randomly
 			self.nextAction = np.random.choice(self.possibleActions, 1)[0]
+			if self.P: print("Exploring: ", self.nextAction)
 			
 		value = self.Q[self.timeStepEpisode, self.currentState, self.action]
 		nextValue = self.Q[self.timeStepEpisode + 1, self.nextState, self.nextAction]
