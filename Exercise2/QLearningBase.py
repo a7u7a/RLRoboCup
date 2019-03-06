@@ -4,10 +4,14 @@
 from DiscreteHFO.HFOAttackingPlayer import HFOAttackingPlayer
 from DiscreteHFO.Agent import Agent
 import argparse
+import hfo
 
 from collections import defaultdict
 import numpy as np
 import operator
+
+import matplotlib.pyplot as plt
+import pylab as pl
 
 class QLearningAgent(Agent):
 	def __init__(self, learningRate = 0.1, discountFactor = 0.9, epsilon = 1 , initVals=0.0):
@@ -133,12 +137,17 @@ if __name__ == '__main__':
 	# Initialize a Q-Learning Agent
 	agent = QLearningAgent(learningRate = 0.1, discountFactor = 0.99, epsilon = 1.0)
 	numEpisodes = args.numEpisodes
+	
+	#debugging
+	goalsRecord = []
+	goals = 0
 
 	# Run training using Q-Learning
 	numTakenActions = 0 
 	for episode in range(numEpisodes):
 		status = 0
 		observation = hfoEnv.reset()
+		agent.reset()
 		
 		while status==0:
 			learningRate, epsilon = agent.computeHyperparameters(numTakenActions, episode)
@@ -153,7 +162,25 @@ if __name__ == '__main__':
 			nextObservation, reward, done, status = hfoEnv.step(action)
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			update = agent.learn()
-			print('valueAfterUpdate: ',agent.learn())
 			
+			if status == 1:
+				goals += 1
+			goalsRecord += [(episode, agent.timeStepEpisode, goals)]
+
+			#print('OUT OF BOUNDS: ',hfo.OUT_OF_BOUNDS)
+			#print('OUT OF TIME: ',hfo.OUT_OF_TIME)
 			observation = nextObservation
-	
+		
+		#print(goalsRecord)
+		if episode >= numEpisodes-1:
+			goals =[]
+			for item in goalsRecord:
+				goals.append(item[2])
+
+			pl.figure(figsize=(10, 6), dpi=80)
+			pl.subplot(1, 1, 1)
+
+			pl.plot(goals, color="blue",  linewidth=4, linestyle="-")
+			plt.savefig('QLearning.png')
+
+

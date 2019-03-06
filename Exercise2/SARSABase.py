@@ -9,8 +9,8 @@ from collections import defaultdict
 import numpy as np
 import operator
 
-# TODO: fix variable names!(action, state)
-# Do not use numtaken actions as iterator for learn!
+import matplotlib.pyplot as plt
+import pylab as pl
 
 class SARSAAgent(Agent):
 	def __init__(self, learningRate = 0.1, discountFactor = 0.99, epsilon = 1, initVals = 0.0):
@@ -31,7 +31,7 @@ class SARSAAgent(Agent):
 		self.e_range = (self.e_range-min(self.e_range))/(max(self.e_range)-min(self.e_range))
 
 		# Set to true to print for debugging
-		self.P = True
+		self.P = False
 
 	def reset(self):
 		self.timeStepEpisode = 0 
@@ -138,6 +138,10 @@ if __name__ == '__main__':
 	# Initialize a SARSA Agent
 	agent = SARSAAgent(0.1, 0.99)
 
+	#debugging
+	goalsRecord = []
+	goals = 0
+
 	# Run training using SARSA
 	numTakenActions = 0 
 	for episode in range(numEpisodes):	
@@ -149,7 +153,6 @@ if __name__ == '__main__':
 		epsStart = True
 
 		while status==0:
-			print('START')
 			learningRate, epsilon = agent.computeHyperparameters(numTakenActions, episode)
 			agent.setEpsilon(epsilon)
 			agent.setLearningRate(learningRate)
@@ -170,7 +173,21 @@ if __name__ == '__main__':
 				epsStart = False
 			
 			observation = nextObservation
-			print('END')
+			
+			if status == 1:
+				goals += 1
+			goalsRecord += [(episode, agent.timeStepEpisode, goals)]
+
+		if episode >= numEpisodes-1:
+			goals =[]
+			for item in goalsRecord:
+				goals.append(item[2])
+
+			pl.figure(figsize=(10, 6), dpi=80)
+			pl.subplot(1, 1, 1)
+
+			pl.plot(goals, color="blue",  linewidth=4, linestyle="-")
+			plt.savefig('Sarsa.png')
 
 		#agent.setExperience(agent.toStateRepresentation(nextObservation), None, None, None, None)
 		agent.learn()

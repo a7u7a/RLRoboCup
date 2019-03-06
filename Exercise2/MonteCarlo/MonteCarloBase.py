@@ -9,6 +9,9 @@ from collections import defaultdict
 import numpy as np
 import operator
 
+import matplotlib.pyplot as plt
+import pylab as pl
+
 class MonteCarloAgent(Agent):
 	def __init__(self, discountFactor = 0.99, epsilon = 1.0, initVals=0.0):
 		super(MonteCarloAgent, self).__init__()
@@ -161,6 +164,11 @@ if __name__ == '__main__':
 	# Initialize a Monte-Carlo Agent
 	agent = MonteCarloAgent(0.99, 	1.0)
 	numEpisodes = args.numEpisodes
+
+	#debugging
+	goalsRecord = []
+	goals = 0
+
 	numTakenActions = 0
 
 	# Run training Monte Carlo Method
@@ -173,7 +181,6 @@ if __name__ == '__main__':
 		# loop until end of episode(status = 1)
 		# 1 loop = 1 state/step
 		while status==0:
-			#print("start")
 			# compute epsilon for this iteration
 			epsilon = agent.computeHyperparameters(numTakenActions, episode)
 			# Set epsilon (??)
@@ -190,8 +197,27 @@ if __name__ == '__main__':
 			# store experience 
 			agent.setExperience(agent.toStateRepresentation(obsCopy), action, reward, status, agent.toStateRepresentation(nextObservation))
 			# reset observation for next state
+
+			if status == 1:
+				goals += 1
+			goalsRecord += [(episode, agent.timeStepEpisode, goals)]
+
 			observation = nextObservation
 			#print("end")
+
+		# at end of all episodes
+		if episode >= numEpisodes-1:
+			goals =[]
+
+			for item in goalsRecord:
+				goals.append(item[2])
+
+			pl.figure(figsize=(10, 6), dpi=80)
+			pl.subplot(1, 1, 1)
+
+			pl.plot(goals, color="blue",  linewidth=4, linestyle="-")
+			plt.savefig('MonteCarlo.png')
+
 
 		agent.learn()
 		#print('completeQ: ',agent.completeQ)
